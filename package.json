@@ -1,0 +1,11 @@
+{
+  "name": "dev-router",
+  "version": "1.0.0",
+  "description": "Local project launcher dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {}
+}

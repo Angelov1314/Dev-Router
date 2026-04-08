@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dev Router</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0a0a0a;
+    color: #e0e0e0;
+    min-height: 100vh;
+  }
+  .header {
+    padding: 32px 40px 24px;
+    border-bottom: 1px solid #1a1a1a;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.5px;
+  }
+  .header p {
+    color: #666;
+    margin-top: 4px;
+    font-size: 14px;
+  }
+  .stats {
+    display: flex;
+    gap: 20px;
+    font-size: 13px;
+    color: #555;
+  }
+  .stats span { color: #888; }
+
+  /* Type filter tabs */
+  .filter-bar {
+    padding: 16px 40px 0;
+    display: flex;
+    gap: 8px;
+  }
+  .filter-btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid #222;
+    background: transparent;
+    color: #666;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .filter-btn:hover { border-color: #444; color: #aaa; }
+  .filter-btn.active { border-color: #22c55e; color: #22c55e; background: #22c55e10; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+    padding: 20px 40px 40px;
+  }
+  .card {
+    background: #111;
+    border: 1px solid #1e1e1e;
+    border-radius: 12px;
+    padding: 24px;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: #333; }
+  .card.running { border-color: #22c55e40; }
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+  .card-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .type-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .type-icon.npm { background: #cb373520; color: #cb3735; }
+  .type-icon.python { background: #3776ab20; color: #3776ab; }
+  .type-icon.godot { background: #47869920; color: #478699; }
+  .type-icon.static { background: #f9731620; color: #f97316; }
+  .card-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .card-script {
+    font-size: 12px;
+    color: #555;
+    font-family: 'SF Mono', Monaco, monospace;
+    margin-top: 4px;
+  }
+  .type-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .type-badge.npm { background: #cb373515; color: #cb3735; }
+  .type-badge.python { background: #3776ab15; color: #3776ab; }
+  .type-badge.godot { background: #47869915; color: #478699; }
+  .status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #333;
+    flex-shrink: 0;
+    margin-top: 6px;
+  }
+  .status-dot.running {
+    background: #22c55e;
+    box-shadow: 0 0 8px #22c55e80;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .card-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    min-height: 24px;
+  }
+  .port-badge {
+    background: #22c55e15;
+    color: #22c55e;
+    padding: 2px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: 'SF Mono', Monaco, monospace;
+    cursor: pointer;
+  }
+  .port-badge:hover { background: #22c55e25; }
+  .uptime {
+    color: #555;
+    font-size: 12px;
+  }
+  .card-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .btn {
+    flex: 1;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-start {
+    background: #22c55e;
+    color: #000;
+  }
+  .btn-start:hover { background: #16a34a; }
+  .btn-start:disabled {
+    background: #333;
+    color: #666;
+    cursor: not-allowed;
+    transform: none;
+  }
+  .btn-stop {
+    background: #dc2626;
+    color: #fff;
+  }
+  .btn-stop:hover { background: #b91c1c; }
+  .btn-open {
+    background: #2563eb;
+    color: #fff;
+  }
+  .btn-open:hover { background: #1d4ed8; }
+  .btn-folder {
+    background: #1e1e1e;
+    color: #aaa;
+    flex: 0;
+    padding: 10px 14px;
+    font-size: 16px;
+  }
+  .btn-folder:hover { background: #282828; color: #fff; }
+  .btn-logs {
+    background: #1e1e1e;
+    color: #aaa;
+    flex: 0;
+    padding: 10px 14px;
+  }
+  .btn-logs:hover { background: #282828; color: #fff; }
+  .btn-norun {
+    background: #1e1e1e;
+    color: #555;
+    cursor: default;
+  }
+  .port-conflict-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #f59e0b18;
+    color: #f59e0b;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-family: 'SF Mono', Monaco, monospace;
+    font-weight: 500;
+  }
+  .active-ports-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #1e1e1e;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    color: #888;
+    font-family: 'SF Mono', Monaco, monospace;
+  }
+  .active-ports-indicator .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #f59e0b;
+  }
+  /* Port conflict modal */
+  .conflict-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #000000cc;
+    z-index: 200;
+    justify-content: center;
+    align-items: center;
+  }
+  .conflict-overlay.active { display: flex; }
+  .conflict-dialog {
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 24px;
+    width: 420px;
+    max-width: 90vw;
+  }
+  .conflict-dialog h3 {
+    font-size: 16px;
+    color: #f59e0b;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .conflict-dialog p {
+    color: #aaa;
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+  .conflict-dialog .conflict-detail {
+    background: #1a1a1a;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 20px;
+  }
+  .conflict-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+  .conflict-actions button {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .conflict-actions .btn-cancel {
+    background: #1e1e1e;
+    color: #aaa;
+  }
+  .conflict-actions .btn-cancel:hover { background: #282828; }
+  .conflict-actions .btn-kill-start {
+    background: #dc2626;
+    color: #fff;
+  }
+  .conflict-actions .btn-kill-start:hover { background: #b91c1c; }
+  .conflict-actions .btn-force-start {
+    background: #f59e0b;
+    color: #000;
+  }
+  .conflict-actions .btn-force-start:hover { background: #d97706; }
+
+  .group-label {
+    grid-column: 1 / -1;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #444;
+    padding: 12px 0 0;
+    border-top: 1px solid #1a1a1a;
+  }
+  .group-label:first-child { border-top: none; padding-top: 0; }
+
+  /* Log modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #000000cc;
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 12px;
+    width: 720px;
+    max-width: 90vw;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #1e1e1e;
+  }
+  .modal-header h3 { font-size: 16px; color: #fff; }
+  .modal-close {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 20px;
+    cursor: pointer;
+  }
+  .modal-close:hover { color: #fff; }
+  .log-content {
+    padding: 16px 20px;
+    overflow-y: auto;
+    flex: 1;
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #aaa;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Dev Router</h1>
+    <p>Local project launcher</p>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <div class="active-ports-indicator" id="activePortsIndicator" style="display:none;">
+      <span class="dot"></span>
+      <span id="activePortsCount">0</span> ports active
+    </div>
+    <div class="stats" id="stats"></div>
+  </div>
+</div>
+
+<div class="filter-bar" id="filterBar"></div>
+<div class="grid" id="grid"></div>
+
+<div class="conflict-overlay" id="conflictModal">
+  <div class="conflict-dialog">
+    <h3>&#9888; Port Conflict</h3>
+    <p id="conflictMessage"></p>
+    <div class="conflict-detail" id="conflictDetail"></div>
+    <div class="conflict-actions">
+      <button class="btn-cancel" onclick="closeConflict()">Cancel</button>
+      <button class="btn-force-start" id="btnForceStart">Start Anyway</button>
+      <button class="btn-kill-start" id="btnKillStart">Kill &amp; Start</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="logModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="logTitle">Logs</h3>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="log-content" id="logContent"></div>
+  </div>
+</div>
+
+<script>
+let projects = [];
+let logInterval = null;
+let activeFilter = 'all';
+let activePorts = {};
+let pendingConflict = null; // { name, hasWeb, port, conflict }
+
+const TYPE_LABELS = {
+  npm: 'JS',
+  python: 'PY',
+  godot: 'GD',
+  static: 'HTML',
+};
+const TYPE_NAMES = {
+  npm: 'Node.js',
+  python: 'Python',
+  godot: 'Godot',
+  static: 'Static',
+};
+
+async function fetchStatus() {
+  const [statusRes, portsRes] = await Promise.all([
+    fetch('/api/status'),
+    fetch('/api/ports'),
+  ]);
+  projects = await statusRes.json();
+  activePorts = await portsRes.json();
+  render();
+}
+
+function formatUptime(s) {
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s/60)}m ${s%60}s`;
+  return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`;
+}
+
+function render() {
+  // Stats
+  const total = projects.length;
+  const runningCount = projects.filter(p => p.running).length;
+  const types = [...new Set(projects.map(p => p.type))];
+  document.getElementById('stats').innerHTML = `
+    <div><span>${total}</span> projects</div>
+    <div><span>${runningCount}</span> running</div>
+  `;
+
+  // Active ports indicator
+  const portCount = Object.keys(activePorts).length;
+  const portsEl = document.getElementById('activePortsIndicator');
+  if (portCount > 0) {
+    portsEl.style.display = 'flex';
+    document.getElementById('activePortsCount').textContent = portCount;
+  } else {
+    portsEl.style.display = 'none';
+  }
+
+  // Filter bar
+  const filterBar = document.getElementById('filterBar');
+  const typeCounts = {};
+  projects.forEach(p => { typeCounts[p.type] = (typeCounts[p.type] || 0) + 1; });
+  filterBar.innerHTML = `
+    <button class="filter-btn ${activeFilter === 'all' ? 'active' : ''}" onclick="setFilter('all')">All (${total})</button>
+    ${Object.entries(typeCounts).map(([t, c]) =>
+      `<button class="filter-btn ${activeFilter === t ? 'active' : ''}" onclick="setFilter('${t}')">${TYPE_NAMES[t] || t} (${c})</button>`
+    ).join('')}
+  `;
+
+  // Cards grouped by directory
+  const filtered = activeFilter === 'all' ? projects : projects.filter(p => p.type === activeFilter);
+  const groups = {};
+  filtered.forEach(p => {
+    if (!groups[p.group]) groups[p.group] = [];
+    groups[p.group].push(p);
+  });
+  const grid = document.getElementById('grid');
+  grid.innerHTML = Object.entries(groups).map(([group, items]) => `
+    <div class="group-label">${group}</div>
+    ${items.map(p => `
+    <div class="card ${p.running ? 'running' : ''}">
+      <div class="card-top">
+        <div class="card-title-row">
+          <div class="type-icon ${p.icon}">${TYPE_LABELS[p.type] || '?'}</div>
+          <div>
+            <div class="card-name">${p.displayName}</div>
+            <div class="card-script">${p.devScript}</div>
+          </div>
+        </div>
+        <div class="status-dot ${p.running ? 'running' : ''}"></div>
+      </div>
+      <div class="card-info">
+        ${p.port ? `<span class="port-badge" onclick="openPort(${p.port})">:${p.port}</span>` : ''}
+        ${p.running ? `<span class="uptime">${formatUptime(p.uptime)}</span>` : ''}
+        ${!p.running && p.portConflict ? `<span class="port-conflict-badge">&#9888; :${p.defaultPort} in use (${p.portConflict.command})</span>` : ''}
+      </div>
+      <div class="card-actions">
+        ${p.noRun ? `
+          <button class="btn btn-norun" disabled>No entry point</button>
+          <button class="btn btn-folder" onclick="openFolder('${p.name}')" title="Open folder">&#128193;</button>
+        ` : p.isStatic ? `
+          <button class="btn btn-start" onclick="startProject('${p.name}', false)">Open in Browser</button>
+          <button class="btn btn-folder" onclick="openFolder('${p.name}')" title="Open folder">&#128193;</button>
+        ` : p.running ? `
+          ${p.hasWeb ? `<button class="btn btn-open" onclick="openPort(${p.port})" ${!p.port ? 'disabled' : ''}>Open</button>` : ''}
+          <button class="btn btn-stop" onclick="stopProject('${p.name}')">Stop</button>
+          <button class="btn btn-logs" onclick="showLogs('${p.name}')">&#9776;</button>
+        ` : `
+          <button class="btn btn-start" onclick="startProject('${p.name}', ${p.hasWeb})">Start</button>
+          <button class="btn btn-folder" onclick="openFolder('${p.name}')" title="Open folder">&#128193;</button>
+        `}
+      </div>
+    </div>
+    `).join('')}
+  `).join('');
+}
+
+function setFilter(f) {
+  activeFilter = f;
+  render();
+}
+
+async function startProject(name, hasWeb, forceStart) {
+  const btn = event?.target;
+  if (btn) { btn.disabled = true; btn.textContent = 'Starting...'; }
+  const res = await fetch('/api/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, forceStart: !!forceStart })
+  });
+  const result = await res.json();
+
+  // Handle port conflict
+  if (result.status === 'port_conflict') {
+    if (btn) { btn.disabled = false; btn.textContent = 'Start'; }
+    showConflictDialog(name, hasWeb, result.defaultPort, result.conflict);
+    return;
+  }
+
+  if (hasWeb) {
+    let tries = 0;
+    const poll = setInterval(async () => {
+      await fetchStatus();
+      const p = projects.find(x => x.name === name);
+      tries++;
+      if ((p && p.port) || tries > 30) {
+        clearInterval(poll);
+        if (p && p.port) openPort(p.port);
+      }
+    }, 1000);
+  } else {
+    setTimeout(fetchStatus, 1000);
+  }
+}
+
+function showConflictDialog(name, hasWeb, port, conflict) {
+  pendingConflict = { name, hasWeb, port, conflict };
+  document.getElementById('conflictMessage').textContent =
+    `Port ${port} is already in use. The dev server for this project needs this port.`;
+  document.getElementById('conflictDetail').innerHTML =
+    `Port: ${port}<br>Process: ${conflict.command} (PID ${conflict.pid})`;
+  document.getElementById('btnForceStart').onclick = async () => {
+    closeConflict();
+    await startProject(name, hasWeb, true);
+  };
+  document.getElementById('btnKillStart').onclick = async () => {
+    closeConflict();
+    await fetch('/api/kill-port', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ port })
+    });
+    // Brief delay to let the port free up
+    await new Promise(r => setTimeout(r, 500));
+    await startProject(name, hasWeb, false);
+  };
+  document.getElementById('conflictModal').classList.add('active');
+}
+
+function closeConflict() {
+  document.getElementById('conflictModal').classList.remove('active');
+  pendingConflict = null;
+}
+
+async function stopProject(name) {
+  await fetch('/api/stop', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name })
+  });
+  await fetchStatus();
+}
+
+function openPort(port) {
+  if (!port) return;
+  window.open(`http://localhost:${port}`, '_blank');
+}
+
+async function openFolder(name) {
+  const p = projects.find(x => x.name === name);
+  if (!p) return;
+  await fetch('/api/folder', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: p.folderPath })
+  });
+}
+
+async function showLogs(name) {
+  document.getElementById('logTitle').textContent = `${name} — logs`;
+  document.getElementById('logModal').classList.add('active');
+  async function loadLogs() {
+    const res = await fetch(`/api/logs?name=${name}`);
+    const logs = await res.json();
+    const el = document.getElementById('logContent');
+    el.textContent = logs.join('');
+    el.scrollTop = el.scrollHeight;
+  }
+  await loadLogs();
+  logInterval = setInterval(loadLogs, 2000);
+}
+
+function closeModal() {
+  document.getElementById('logModal').classList.remove('active');
+  if (logInterval) { clearInterval(logInterval); logInterval = null; }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeModal(); closeConflict(); }
+});
+
+fetchStatus();
+setInterval(fetchStatus, 3000);
+</script>
+</body>
+</html>
