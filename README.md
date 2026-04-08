@@ -1,5 +1,7 @@
 # Dev Router
 
+![Demo](demo.png)
+
 One-click local dev server launcher. Scans your project folders, shows a dashboard, and lets you start/stop any project with a single click.
 
 ![Zero dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)
