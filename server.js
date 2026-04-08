@@ -3,7 +3,21 @@ const fs = require("fs");
 const path = require("path");
 const { spawn, exec, execSync } = require("child_process");
 
-const PORT = 4000;
+// Load .env file if present (zero-dependency)
+const envPath = path.join(__dirname, ".env");
+if (fs.existsSync(envPath)) {
+  for (const line of fs.readFileSync(envPath, "utf-8").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    const val = trimmed.slice(eq + 1).trim();
+    if (!process.env[key]) process.env[key] = val;
+  }
+}
+
+const PORT = parseInt(process.env.DEV_ROUTER_PORT || "4000");
 
 // ── Port conflict detection ──
 
@@ -76,11 +90,16 @@ function detectDefaultPort(project) {
 
   return null;
 }
-const PROJECT_DIRS = [
-  { path: "/Users/jerry/Claude/Projects", label: "Projects" },
-  { path: path.resolve(__dirname, ".."), label: "Claude" },
-  { path: "/Users/jerry/Desktop/projects", label: "Desktop" },
-];
+// ── Project directories to scan ──
+// Customize this list to point at your own project folders.
+// Each entry: { path: "/absolute/path", label: "Display Name" }
+// The parent directory of this script is always included as fallback.
+const PROJECT_DIRS = process.env.DEV_ROUTER_DIRS
+  ? process.env.DEV_ROUTER_DIRS.split(",").map((d) => {
+      const [p, l] = d.split(":");
+      return { path: p.trim(), label: (l || path.basename(p)).trim() };
+    })
+  : [{ path: path.resolve(__dirname, ".."), label: "Projects" }];
 
 // Track running processes: { [projectName]: { proc, port, logs[] } }
 const running = {};
